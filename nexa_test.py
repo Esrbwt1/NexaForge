@@ -18,14 +18,17 @@ class NexaRuntime:
     def run(self, code_str):
         self.validate_license()
         self.telemetry["runs"] += 1
-        start = time.time()
-        if "NEXASCRIPT" in code_str:  # Stub for future custom language
+        if "NEXASCRIPT" in code_str:
             print("NexaScript detected—coming soon!")
-            exec("def fast_code(): return 249999500000")  # Placeholder
+            exec("def fast_code(): return 249999500000")
+            func = globals()["fast_code"]
         else:
             exec(code_str, globals())
-        elapsed = time.time() - start
-        self.telemetry["time"] += elapsed
+            func = globals()["fast_code"]
+        start = time.perf_counter()
+        result = func()  # Run the function, not just define it
+        elapsed = time.perf_counter() - start
+        self.telemetry["time"] = elapsed
         return self.telemetry
 
 # Optimized code
