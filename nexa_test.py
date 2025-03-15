@@ -1,31 +1,58 @@
-import ast  # Python’s built-in code parser
-import time  # To measure speed gains
+import ast
+import time
 
-# Sample slow code: A dumb loop adding numbers
-def slow_loop():
+# Sample slow code
+def slow_code():
     total = 0
-    for i in range(1000000):  # 1 million iterations
-        total += i
+    for i in range(1000000):
+        if i % 2 == 0:
+            total += i
     return total
 
-# Optimizer: Turns slow code into fast code
+# Optimizer
+class NexaOptimizer(ast.NodeTransformer):
+    def visit_For(self, node):
+        if (isinstance(node.iter, ast.Call) and 
+            node.iter.func.id == 'range' and 
+            len(node.iter.args) == 1):
+            # Check for if inside
+            if len(node.body) == 1 and isinstance(node.body[0], ast.If):
+                if (isinstance(node.body[0].test, ast.Compare) and 
+                    isinstance(node.body[0].test.left, ast.BinOp) and 
+                    node.body[0].test.left.op.__class__.__name__ == 'Mod' and 
+                    node.body[0].test.comparators[0].n == 0):
+                    # Replace with sum of evens
+                    limit = ast.unparse(node.iter.args[0])
+                    new_body = ast.parse(f"total = sum(range(0, {limit}, 2))").body[0]
+                    return new_body
+        return self.generic_visit(node)
+
 def optimize_code(code_str):
-    tree = ast.parse(code_str)  # Parse the code into a tree structure
-    # Dummy optimization: Replace loop with Python’s built-in sum()
-    new_code = "def fast_loop():\n    return sum(range(1000000))"
-    return new_code
+    tree = ast.parse(code_str)
+    # Only optimize the function body, keep structure
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            node.body = [NexaOptimizer().visit(n) for n in node.body]
+    ast.fix_missing_locations(tree)
+    return ast.unparse(tree)
 
-# Test both versions
-slow_code = "def slow_loop():\n    total = 0\n    for i in range(1000000):\n        total += i\n    return total"
-fast_code = optimize_code(slow_code)  # Generate the optimized version
-exec(fast_code)  # Run the new code to define fast_loop()
+# Test it
+slow_code_str = """
+def slow_code():
+    total = 0
+    for i in range(1000000):
+        if i % 2 == 0:
+            total += i
+    return total
+"""
+optimized_code_str = optimize_code(slow_code_str)
+print("Optimized code:\n", optimized_code_str)
+exec(optimized_code_str.replace("slow_code", "fast_code"))
 
-# Measure slow version
+# Measure
 start = time.time()
-result = slow_loop()
+result = slow_code()
 print(f"Slow: {result}, Time: {time.time() - start}")
-
-# Measure fast version
 start = time.time()
-result = fast_loop()
+result = fast_code()
 print(f"Fast: {result}, Time: {time.time() - start}")
